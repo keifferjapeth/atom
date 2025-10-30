@@ -118,7 +118,7 @@ class MainWindow(QMainWindow):
         super().__init__(flags=Qt.WindowType.Window)
 
         self.samples_buffer = np.ndarray([], dtype=np.float32)
-        self.audio_queue = queue.Queue()
+        self.queue = queue.Queue()
         self.current_command: Optional[str] = None
 
         self.setWindowFlags(Qt.WindowType.WindowStaysOnTopHint)
