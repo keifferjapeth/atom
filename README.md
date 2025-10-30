@@ -16,7 +16,17 @@ Enhanced into Atom AI Assistant with advanced learning and system integration ca
 💾 **Persistent Knowledge**: Stores and retrieves information across sessions  
 🔐 **Secure Storage**: Uses macOS Keychain for API key management  
 ⚡ **Enhanced File Management**: Complete file system operations and analysis  
-🖥️ **Terminal Integration**: Direct command execution with output capture
+🖥️ **Terminal Integration**: Direct command execution with output capture  
+✨ **Siri-like Interface**: Beautiful glowing placeholder and smooth animations  
+🔍 **API Validation**: Comprehensive testing of OpenAI API keys  
+📋 **Capability Diagnostics**: Real-time system capability checking and status display
+
+## 🔧 **New Developer Tools**
+
+🧪 **API Testing**: `python test_api_capabilities.py` - Test all API keys and validate connectivity  
+🔍 **System Diagnostics**: `python api_validator.py` - Check capabilities and run full diagnostics  
+🍎 **Xcode Environment Check**: `python xcode_setup_check.py` - Verify macOS/Xcode setup  
+📊 **Capability Monitor**: Built-in GUI panel showing real-time system status
 
 ## Requirements
 
@@ -43,28 +53,33 @@ Enhanced into Atom AI Assistant with advanced learning and system integration ca
 
 ### 🚀 **Easy Setup**
 ```bash
-# 1. Install dependencies
+# 1. Check your system and Xcode environment (macOS only)
+python xcode_setup_check.py
+
+# 2. Install dependencies
 pip install -r requirements.txt
 # or
 poetry install
 
-# 2. Set up your OpenAI API key (choose one method)
-python setup.py           # Interactive Keychain setup (recommended)
-python keychain_manager.py # Manual Keychain setup
+# 3. Set up your OpenAI API key (choose one method)
+python keychain_manager.py # Keychain setup (recommended for macOS)
 # or use environment: export OPENAI_API_KEY=your_key_here
 # or create .env file: echo "OPENAI_API_KEY=your_key_here" > .env
+
+# 4. Test API key and check capabilities
+python test_api_capabilities.py
 ```
 
 ### 🎯 **Run Atom**
 ```bash
-# GUI Mode (recommended)
+# GUI Mode (recommended) - Features Siri-like glowing interface
 python gui.py
 
 # CLI Mode  
 python main.py "your command here"
 
-# Interactive Setup & Test
-python setup.py
+# Run system diagnostics
+python api_validator.py
 ```
 
 ## How Atom Works

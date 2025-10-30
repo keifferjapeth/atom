@@ -10,8 +10,8 @@ import soundfile
 import queue
 import tempfile
 import whisper
-from PyQt6.QtCore import Qt, QTimer
-from PyQt6.QtGui import QIcon, QPixmap, QPainter, QColor
+from PyQt6.QtCore import Qt, QTimer, QPropertyAnimation, QEasingCurve, pyqtProperty
+from PyQt6.QtGui import QIcon, QPixmap, QPainter, QColor, QPalette
 from PyQt6.QtWidgets import (
     QApplication,
     QMainWindow,
@@ -28,6 +28,7 @@ from PyQt6.QtWidgets import (
 
 import main
 from keychain_manager import get_openai_api_key_with_fallback
+from api_validator import validate_openai_api_key, check_atom_capabilities
 
 # Optional enhanced capabilities
 try:
@@ -54,6 +55,56 @@ RECORD_ICON_PATH = get_asset_path('assets/mic.svg')
 STOP_ICON_PATH = get_asset_path('assets/stop.svg')
 
 
+class GlowingLineEdit(QLineEdit):
+    """Custom QLineEdit with Siri-like glowing placeholder animation."""
+    
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._glow_opacity = 0.3
+        self._glow_animation = QPropertyAnimation(self, b"glowOpacity")
+        self._glow_animation.setDuration(1500)
+        self._glow_animation.setStartValue(0.3)
+        self._glow_animation.setEndValue(0.9)
+        self._glow_animation.setEasingCurve(QEasingCurve.Type.InOutSine)
+        self._glow_animation.setLoopCount(-1)  # Loop forever
+        
+        # Start the animation
+        self._glow_animation.start()
+        
+        # Apply initial styling
+        self._update_style()
+    
+    @pyqtProperty(float)
+    def glowOpacity(self):
+        return self._glow_opacity
+    
+    @glowOpacity.setter
+    def glowOpacity(self, value):
+        self._glow_opacity = value
+        self._update_style()
+    
+    def _update_style(self):
+        """Update the stylesheet with current glow opacity."""
+        # Calculate the glow color based on opacity
+        glow_intensity = int(100 + (155 * self._glow_opacity))
+        
+        # Create a glowing effect similar to Siri
+        self.setStyleSheet(f"""
+            QLineEdit {{
+                border: 2px solid rgba({glow_intensity}, {glow_intensity}, {glow_intensity + 50}, {self._glow_opacity});
+                border-radius: 8px;
+                padding: 8px 12px;
+                font-size: 14px;
+                background-color: palette(base);
+                selection-background-color: palette(highlight);
+            }}
+            QLineEdit:focus {{
+                border: 2px solid rgba(100, 150, 255, {0.5 + self._glow_opacity * 0.5});
+                box-shadow: 0 0 10px rgba(100, 150, 255, {self._glow_opacity});
+            }}
+        """)
+
+
 class MainWindow(QMainWindow):
     is_recording = False
     record_button: QPushButton
@@ -67,7 +118,7 @@ class MainWindow(QMainWindow):
         super().__init__(flags=Qt.WindowType.Window)
 
         self.samples_buffer = np.ndarray([], dtype=np.float32)
-        self.audio_queue = queue.Queue()
+        self.queue = queue.Queue()
         self.current_command: Optional[str] = None
 
         self.setWindowFlags(Qt.WindowType.WindowStaysOnTopHint)
@@ -114,7 +165,7 @@ class MainWindow(QMainWindow):
         # Manual command entry
         command_box = QGroupBox("Type a Command", parent=self)
         command_layout = QHBoxLayout()
-        self.command_input = QLineEdit(parent=self)
+        self.command_input = GlowingLineEdit(parent=self)
         self.command_input.setPlaceholderText("Ask Atom to do something... (e.g., 'Organize my Downloads folder')")
         self.command_input.returnPressed.connect(self.on_run_command)
 
@@ -168,6 +219,82 @@ class MainWindow(QMainWindow):
         self.insights_timer = QTimer(self)
         self.insights_timer.timeout.connect(self.refresh_insights)
         self.insights_timer.start(90_000)  # every 90 seconds
+
+    def on_run_command(self):
+        """Execute a text command typed by the user."""
+        command = self.command_input.text().strip()
+        if not command:
+            return
+        
+        self.append_log(f"💬 User command: {command}")
+        self.status_label.setText(f"🔄 Executing: {command}")
+        self.command_input.clear()
+        self.run_command_button.setDisabled(True)
+        
+        # Run command in a separate thread
+        def run_command():
+            try:
+                result = main.main(command)
+                self.status_label.setText(f"✅ Completed: {command}")
+                if result:
+                    self.append_log(f"✅ Result: {result}")
+            except Exception as e:
+                error_msg = f"Error: {str(e)}"
+                self.status_label.setText(f"❌ Failed: {command}")
+                self.append_log(f"❌ {error_msg}")
+            finally:
+                self.run_command_button.setDisabled(False)
+                self.refresh_insights()
+        
+        command_thread = Thread(target=run_command)
+        command_thread.start()
+    
+    def append_log(self, message: str):
+        """Append a message to the activity log."""
+        from datetime import datetime
+        timestamp = datetime.now().strftime("%H:%M:%S")
+        self.log_view.append(f"[{timestamp}] {message}")
+    
+    def refresh_insights(self):
+        """Refresh the insights panel with system status and learning data."""
+        insights = []
+        
+        # Check API status
+        api_valid, api_message = validate_openai_api_key()
+        if api_valid:
+            insights.append("🔑 API Status: ✅ Connected and validated")
+        else:
+            insights.append(f"🔑 API Status: ❌ {api_message}")
+        
+        # Check capabilities
+        capabilities = check_atom_capabilities()
+        available_capabilities = [k.replace('_', ' ').title() 
+                                 for k, v in capabilities.items() 
+                                 if v['status'] == 'available']
+        
+        if available_capabilities:
+            insights.append(f"\n⚙️  Available Capabilities ({len(available_capabilities)}/{len(capabilities)}):")
+            for cap in available_capabilities:
+                insights.append(f"   ✅ {cap}")
+        
+        # Get learning system data if available
+        if LEARNING_TOOLS_AVAILABLE:
+            try:
+                recent = get_recent_activity(limit=3)
+                if recent:
+                    insights.append("\n📊 Recent Activity:")
+                    for item in recent:
+                        insights.append(f"   • {item}")
+                
+                patterns = get_command_patterns(limit=3)
+                if patterns:
+                    insights.append("\n🧠 Common Commands:")
+                    for pattern in patterns:
+                        insights.append(f"   • {pattern}")
+            except Exception as e:
+                insights.append(f"\n⚠️  Learning system error: {str(e)}")
+        
+        self.insights_view.setPlainText("\n".join(insights))
 
     def transcribe_recording(self):
         model = whisper.load_model("base")
