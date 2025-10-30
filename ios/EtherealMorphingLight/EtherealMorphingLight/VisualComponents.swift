@@ -111,6 +111,7 @@ struct GlassCard<Content: View>: View {
 struct PulsingLightDot: View {
     @State private var animate = false
     let delay: Double
+    var size: CGFloat = 18
 
     var body: some View {
         Circle()
@@ -122,10 +123,10 @@ struct PulsingLightDot: View {
                     ],
                     center: .center,
                     startRadius: 0,
-                    endRadius: 16
+                    endRadius: size
                 )
             )
-            .frame(width: 18, height: 18)
+            .frame(width: size, height: size)
             .scaleEffect(animate ? 1.4 : 0.8)
             .opacity(animate ? 1 : 0.35)
             .animation(
@@ -278,9 +279,17 @@ struct EnergyHaloOverlay: View {
 }
 
 struct SuperpowerGlyphField: View {
+    var scale: CGFloat = 1.0
     @State private var auraPulse: CGFloat = 0.2
 
     var body: some View {
+        let clampedScale = min(1.25, max(0.72, scale))
+        let haloSize = 180 * clampedScale
+        let ringBase = 110 * clampedScale
+        let titleSize = max(16, min(22, 18 * clampedScale))
+        let subtitleSize = max(12, min(15, 13 * clampedScale))
+        let dotSize = max(12, min(18, 16 * clampedScale))
+
         ZStack {
             Circle()
                 .fill(
@@ -291,11 +300,11 @@ struct SuperpowerGlyphField: View {
                             Color.clear
                         ],
                         center: .center,
-                        startRadius: 12,
-                        endRadius: 110
+                        startRadius: 12 * clampedScale,
+                        endRadius: haloSize
                     )
                 )
-                .frame(width: 180, height: 180)
+                .frame(width: haloSize, height: haloSize)
 
             ForEach(0..<4) { index in
                 Circle()
@@ -313,24 +322,27 @@ struct SuperpowerGlyphField: View {
                         ),
                         lineWidth: CGFloat(2 + index)
                     )
-                    .frame(width: CGFloat(110 + index * 22), height: CGFloat(110 + index * 22))
+                    .frame(
+                        width: CGFloat(ringBase + CGFloat(index) * 22 * clampedScale),
+                        height: CGFloat(ringBase + CGFloat(index) * 22 * clampedScale)
+                    )
                     .rotationEffect(.degrees(Double(index) * 24 + Double(auraPulse) * 120))
                     .opacity(0.35 - Double(index) * 0.06)
             }
 
-            VStack(spacing: 8) {
+            VStack(spacing: 8 * clampedScale) {
                 Text("Prime Aegis")
-                    .font(.system(size: 18, weight: .semibold, design: .rounded))
+                    .font(.system(size: titleSize, weight: .semibold, design: .rounded))
                     .foregroundStyle(Color.white.opacity(0.9))
 
-                HStack(spacing: 8) {
+                HStack(spacing: 8 * clampedScale) {
                     ForEach(0..<3) { index in
-                        PulsingLightDot(delay: Double(index) * 0.25)
+                        PulsingLightDot(delay: Double(index) * 0.25, size: dotSize)
                     }
                 }
 
                 Text("Heroic resonance 87% charged")
-                    .font(.system(size: 13, weight: .medium, design: .rounded))
+                    .font(.system(size: subtitleSize, weight: .medium, design: .rounded))
                     .foregroundStyle(Color.white.opacity(0.6))
             }
         }
@@ -347,13 +359,20 @@ struct JarvisSkillRow: View {
     let icon: String
     let title: String
     let detail: String
+    var layoutWidth: CGFloat
 
     var body: some View {
-        HStack(spacing: 14) {
+        let isCompact = layoutWidth < 360
+        let titleSize = isCompact ? 15 : 16
+        let detailSize = isCompact ? 12.5 : 13.5
+        let iconSize: CGFloat = isCompact ? 16 : 18
+        let iconFrame: CGFloat = isCompact ? 32 : 36
+
+        HStack(alignment: .top, spacing: isCompact ? 12 : 14) {
             Image(systemName: icon)
-                .font(.system(size: 18, weight: .semibold))
+                .font(.system(size: iconSize, weight: .semibold))
                 .foregroundStyle(Color.cyan.opacity(0.85))
-                .frame(width: 36, height: 36)
+                .frame(width: iconFrame, height: iconFrame)
                 .background(
                     Circle()
                         .fill(Color.white.opacity(0.08))
@@ -366,16 +385,16 @@ struct JarvisSkillRow: View {
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
-                    .font(.system(size: 16, weight: .semibold, design: .rounded))
+                    .font(.system(size: CGFloat(titleSize), weight: .semibold, design: .rounded))
                     .foregroundStyle(Color.white.opacity(0.9))
 
                 Text(detail)
-                    .font(.system(size: 13.5, weight: .medium, design: .rounded))
+                    .font(.system(size: CGFloat(detailSize), weight: .medium, design: .rounded))
                     .foregroundStyle(Color.white.opacity(0.62))
-                    .lineLimit(2)
+                    .lineSpacing(isCompact ? 2 : 3)
+                    .fixedSize(horizontal: false, vertical: true)
             }
-
-            Spacer()
+            .frame(maxWidth: .infinity, alignment: .leading)
 
             Capsule()
                 .fill(
@@ -385,14 +404,14 @@ struct JarvisSkillRow: View {
                         endPoint: .trailing
                     )
                 )
-                .frame(width: 46, height: 18)
+                .frame(width: isCompact ? 44 : 46, height: isCompact ? 16 : 18)
                 .overlay(
                     Text("ON")
-                        .font(.system(size: 11, weight: .bold, design: .rounded))
+                        .font(.system(size: isCompact ? 10.5 : 11, weight: .bold, design: .rounded))
                         .foregroundStyle(Color.white.opacity(0.8))
                 )
         }
-        .padding(14)
+        .padding(isCompact ? 12 : 14)
         .background(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .fill(Color.white.opacity(0.05))
@@ -403,7 +422,14 @@ struct JarvisSkillRow: View {
         )
         .overlay(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(LinearGradient(colors: [Color.white.opacity(0.0), Color.cyan.opacity(0.2)], startPoint: .topLeading, endPoint: .bottomTrailing), lineWidth: 1)
+                .stroke(
+                    LinearGradient(
+                        colors: [Color.white.opacity(0.0), Color.cyan.opacity(0.2)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 1
+                )
         )
     }
 }
@@ -416,7 +442,7 @@ struct VoiceCommandWaveform: View {
                 let midY = size.height / 2
                 let amplitude = size.height * 0.28
                 let path = Path { path in
-                    let step = size.width / 60
+                    let step = max(1, size.width / 60)
                     path.move(to: CGPoint(x: 0, y: midY))
                     for x in stride(from: 0, through: size.width, by: step) {
                         let relative = x / size.width
@@ -453,18 +479,39 @@ struct VoiceCommandWaveform: View {
 }
 
 struct CommandOrbField: View {
+    let maxWidth: CGFloat
+    let scale: CGFloat
+
     var body: some View {
-        HStack(spacing: 28) {
-            ForEach(0..<3) { index in
-                CommandOrb(
-                    title: index == 0 ? "Shield" : index == 1 ? "Scan" : "Deploy",
-                    subtitle: index == 0 ? "Impact deflect" : index == 1 ? "Spectral sweep" : "Nanite swarm",
-                    delay: Double(index) * 0.35
-                )
+        let orbScale = min(1.15, max(0.8, scale * 0.95))
+        let spacing = max(18, min(32, maxWidth * 0.05))
+        let padding = max(16, min(28, maxWidth * 0.08))
+
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: spacing) {
+                orbRow(orbScale: orbScale)
             }
+            .frame(maxWidth: .infinity)
+
+            VStack(spacing: spacing) {
+                orbRow(orbScale: orbScale)
+            }
+            .frame(maxWidth: .infinity)
         }
-        .padding(.horizontal, 24)
-        .padding(.top, 8)
+        .padding(.horizontal, padding)
+        .padding(.top, max(8, min(16, maxWidth * 0.03)))
+    }
+
+    @ViewBuilder
+    private func orbRow(orbScale: CGFloat) -> some View {
+        ForEach(0..<3) { index in
+            CommandOrb(
+                title: index == 0 ? "Shield" : index == 1 ? "Scan" : "Deploy",
+                subtitle: index == 0 ? "Impact deflect" : index == 1 ? "Spectral sweep" : "Nanite swarm",
+                delay: Double(index) * 0.35,
+                scale: orbScale
+            )
+        }
     }
 }
 
@@ -472,10 +519,16 @@ private struct CommandOrb: View {
     let title: String
     let subtitle: String
     let delay: Double
+    let scale: CGFloat
     @State private var animate = false
 
     var body: some View {
-        VStack(spacing: 8) {
+        let clampedScale = min(1.2, max(0.82, scale))
+        let orbSize = 72 * clampedScale
+        let titleSize = max(12, min(14, 13 * clampedScale))
+        let subtitleSize = max(10, min(12, 11 * clampedScale))
+
+        VStack(spacing: 8 * clampedScale) {
             Circle()
                 .fill(
                     RadialGradient(
@@ -485,8 +538,8 @@ private struct CommandOrb: View {
                             Color.blue.opacity(0.05)
                         ],
                         center: .center,
-                        startRadius: 6,
-                        endRadius: 70
+                        startRadius: 6 * clampedScale,
+                        endRadius: orbSize
                     )
                 )
                 .overlay(
@@ -495,24 +548,25 @@ private struct CommandOrb: View {
                 )
                 .overlay(
                     Image(systemName: "sparkles")
-                        .font(.system(size: 18, weight: .semibold))
+                        .font(.system(size: 18 * clampedScale, weight: .semibold))
                         .foregroundStyle(Color.white.opacity(0.9))
                 )
-                .frame(width: 72, height: 72)
+                .frame(width: orbSize, height: orbSize)
                 .scaleEffect(animate ? 1.08 : 0.96)
                 .shadow(color: Color.cyan.opacity(0.4), radius: 18, x: 0, y: 10)
 
-            VStack(spacing: 2) {
+            VStack(spacing: 2 * clampedScale) {
                 Text(title)
-                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+                    .font(.system(size: titleSize, weight: .semibold, design: .rounded))
                     .foregroundStyle(Color.white.opacity(0.85))
 
                 Text(subtitle)
-                    .font(.system(size: 11, weight: .medium, design: .rounded))
+                    .font(.system(size: subtitleSize, weight: .medium, design: .rounded))
                     .foregroundStyle(Color.white.opacity(0.55))
             }
         }
-        .padding(.vertical, 8)
+        .padding(.vertical, 8 * clampedScale)
+        .padding(.horizontal, 6 * clampedScale)
         .onAppear {
             withAnimation(
                 .easeInOut(duration: 2)
