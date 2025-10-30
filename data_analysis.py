@@ -308,6 +308,10 @@ def analyze_directory_structure(directory_path: str, max_depth: int = 3, include
             'newest_files': []
         }
         
+        # Limit memory by not keeping all file info in memory
+        MAX_TRACKED_FILES = 1000
+        files_processed = 0
+        
         # Walk through directory
         for root, dirs, files in os.walk(directory_path):
             # Check depth
@@ -324,6 +328,10 @@ def analyze_directory_structure(directory_path: str, max_depth: int = 3, include
             stats['total_dirs'] += len(dirs)
             
             for file in files:
+                # Limit processing to avoid memory issues
+                if files_processed >= MAX_TRACKED_FILES:
+                    break
+                    
                 file_path = os.path.join(root, file)
                 try:
                     stat_info = os.stat(file_path)
@@ -340,24 +348,39 @@ def analyze_directory_structure(directory_path: str, max_depth: int = 3, include
                     else:
                         stats['file_types']['[no extension]'] += 1
                     
-                    # Track largest files
+                    # Track largest files (keep only top 10)
                     file_info = (file_path, file_size, mtime)
-                    stats['largest_files'].append(file_info)
-                    stats['oldest_files'].append(file_info)
-                    stats['newest_files'].append(file_info)
+                    if len(stats['largest_files']) < 10:
+                        stats['largest_files'].append(file_info)
+                        stats['largest_files'].sort(key=lambda x: x[1], reverse=True)
+                    elif file_size > stats['largest_files'][-1][1]:
+                        stats['largest_files'][-1] = file_info
+                        stats['largest_files'].sort(key=lambda x: x[1], reverse=True)
+                    
+                    # Track oldest files (keep only top 5)
+                    if len(stats['oldest_files']) < 5:
+                        stats['oldest_files'].append(file_info)
+                        stats['oldest_files'].sort(key=lambda x: x[2])
+                    elif mtime < stats['oldest_files'][-1][2]:
+                        stats['oldest_files'][-1] = file_info
+                        stats['oldest_files'].sort(key=lambda x: x[2])
+                    
+                    # Track newest files (keep only top 5)
+                    if len(stats['newest_files']) < 5:
+                        stats['newest_files'].append(file_info)
+                        stats['newest_files'].sort(key=lambda x: x[2], reverse=True)
+                    elif mtime > stats['newest_files'][-1][2]:
+                        stats['newest_files'][-1] = file_info
+                        stats['newest_files'].sort(key=lambda x: x[2], reverse=True)
+                    
+                    files_processed += 1
                     
                 except (OSError, IOError):
                     continue
-        
-        # Sort and limit file lists
-        stats['largest_files'].sort(key=lambda x: x[1], reverse=True)
-        stats['largest_files'] = stats['largest_files'][:10]
-        
-        stats['oldest_files'].sort(key=lambda x: x[2])
-        stats['oldest_files'] = stats['oldest_files'][:5]
-        
-        stats['newest_files'].sort(key=lambda x: x[2], reverse=True)
-        stats['newest_files'] = stats['newest_files'][:5]
+            
+            if files_processed >= MAX_TRACKED_FILES:
+                analysis += f"⚠️  Processing limited to {MAX_TRACKED_FILES} files for performance\\n\\n"
+                break
         
         # Generate report
         analysis += f"📊 Summary:\\n"
@@ -576,8 +599,8 @@ def extract_all_keys(obj, keys=None, path=""):
     
     return keys
 
-def get_file_hash(file_path: str, chunk_size: int = 8192) -> str:
-    """Calculate MD5 hash of a file."""
+def get_file_hash(file_path: str, chunk_size: int = 65536) -> str:
+    """Calculate MD5 hash of a file efficiently with optimized chunk size."""
     import hashlib
     hash_md5 = hashlib.md5()
     
