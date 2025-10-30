@@ -46,62 +46,54 @@ struct ContentView: View {
         let skillSpacing = max(12, min(18, height * 0.024))
         let textSpacing = max(16, min(24, height * 0.03))
         let headerSpacing = max(6, min(12, height * 0.015))
-        let cardMaxWidth = min(520, width - horizontalInset * 2)
+        let contentWidth = width - horizontalInset * 2
+        let cardMaxWidth = min(520, contentWidth)
+        let orbConsoleWidth = min(cardMaxWidth, contentWidth * 0.48)
         let topSpacer = height > 860 ? height * 0.08 : height * 0.04
+        let wideSpacing = max(24, min(48, width * 0.06))
 
         VStack(spacing: stackSpacing) {
             Spacer(minLength: topSpacer)
 
-            GlassCard {
-                VStack(spacing: textSpacing) {
-                    VStack(spacing: headerSpacing) {
-                        Text("Jarvis Sentinel Uplink")
-                            .font(.system(size: max(22, min(28, width * 0.065)), weight: .semibold, design: .rounded))
-                            .foregroundStyle(Color.white.opacity(0.95))
-                            .multilineTextAlignment(.center)
+            ViewThatFits(in: .horizontal) {
+                HStack(alignment: .top, spacing: wideSpacing) {
+                    heroStatusCard(
+                        width: width,
+                        cardMaxWidth: cardMaxWidth,
+                        headerSpacing: headerSpacing,
+                        textSpacing: textSpacing,
+                        skillSpacing: skillSpacing,
+                        cardPadding: cardPadding,
+                        heroScale: heroScale
+                    )
 
-                        Text("Seamless cognition anchor priming hero-grade protocols.")
-                            .font(.system(size: max(14, min(17, width * 0.04)), weight: .medium, design: .rounded))
-                            .foregroundStyle(Color.white.opacity(0.75))
-                            .multilineTextAlignment(.center)
-                            .lineSpacing(4)
-                    }
-
-                    SuperpowerGlyphField(scale: heroScale)
-                        .padding(.top, max(8, textSpacing * 0.4))
-
-                    VStack(spacing: skillSpacing) {
-                        JarvisSkillRow(
-                            icon: "bolt.fill",
-                            title: "Photon Forecast",
-                            detail: "Predictive energy routing 4.7s ahead",
-                            layoutWidth: cardMaxWidth
-                        )
-
-                        JarvisSkillRow(
-                            icon: "waveform.path.ecg",
-                            title: "Vital Shield",
-                            detail: "Autonomous resilience sweep every 900ms",
-                            layoutWidth: cardMaxWidth
-                        )
-
-                        JarvisSkillRow(
-                            icon: "antenna.radiowaves.left.and.right",
-                            title: "Quantum Link",
-                            detail: "Jarvis neural uplink stabilized at 99.98%",
-                            layoutWidth: cardMaxWidth
-                        )
-                    }
-
-                    VoiceCommandWaveform()
-                        .padding(.top, max(4, textSpacing * 0.25))
+                    CommandOrbConsole(
+                        availableWidth: orbConsoleWidth,
+                        scale: heroScale
+                    )
+                    .frame(maxWidth: orbConsoleWidth)
                 }
-                .padding(cardPadding)
-            }
-            .frame(maxWidth: cardMaxWidth)
-            .padding(.horizontal, horizontalInset)
+                .frame(maxWidth: .infinity)
 
-            CommandOrbField(maxWidth: width, scale: heroScale)
+                VStack(spacing: stackSpacing) {
+                    heroStatusCard(
+                        width: width,
+                        cardMaxWidth: cardMaxWidth,
+                        headerSpacing: headerSpacing,
+                        textSpacing: textSpacing,
+                        skillSpacing: skillSpacing,
+                        cardPadding: cardPadding,
+                        heroScale: heroScale
+                    )
+
+                    CommandOrbConsole(
+                        availableWidth: cardMaxWidth,
+                        scale: heroScale
+                    )
+                    .frame(maxWidth: cardMaxWidth)
+                }
+                .frame(maxWidth: .infinity)
+            }
 
             PlaceholderFooter()
                 .padding(.bottom, max(0, verticalInset * 0.35))
@@ -110,6 +102,65 @@ struct ContentView: View {
         .padding(.vertical, verticalInset)
         .frame(maxWidth: .infinity)
         .frame(minHeight: height)
+    }
+
+    @ViewBuilder
+    private func heroStatusCard(
+        width: CGFloat,
+        cardMaxWidth: CGFloat,
+        headerSpacing: CGFloat,
+        textSpacing: CGFloat,
+        skillSpacing: CGFloat,
+        cardPadding: EdgeInsets,
+        heroScale: CGFloat
+    ) -> some View {
+        GlassCard {
+            VStack(spacing: textSpacing) {
+                VStack(spacing: headerSpacing) {
+                    Text("Jarvis Sentinel Uplink")
+                        .font(.system(size: max(22, min(28, width * 0.065)), weight: .semibold, design: .rounded))
+                        .foregroundStyle(Color.white.opacity(0.95))
+                        .multilineTextAlignment(.center)
+
+                    Text("Seamless cognition anchor priming hero-grade protocols.")
+                        .font(.system(size: max(14, min(17, width * 0.04)), weight: .medium, design: .rounded))
+                        .foregroundStyle(Color.white.opacity(0.75))
+                        .multilineTextAlignment(.center)
+                        .lineSpacing(4)
+                }
+
+                SuperpowerGlyphField(scale: heroScale)
+                    .padding(.top, max(8, textSpacing * 0.4))
+
+                VStack(spacing: skillSpacing) {
+                    JarvisSkillRow(
+                        icon: "bolt.fill",
+                        title: "Photon Forecast",
+                        detail: "Predictive energy routing 4.7s ahead",
+                        layoutWidth: cardMaxWidth
+                    )
+
+                    JarvisSkillRow(
+                        icon: "waveform.path.ecg",
+                        title: "Vital Shield",
+                        detail: "Autonomous resilience sweep every 900ms",
+                        layoutWidth: cardMaxWidth
+                    )
+
+                    JarvisSkillRow(
+                        icon: "antenna.radiowaves.left.and.right",
+                        title: "Quantum Link",
+                        detail: "Jarvis neural uplink stabilized at 99.98%",
+                        layoutWidth: cardMaxWidth
+                    )
+                }
+
+                VoiceCommandWaveform()
+                    .padding(.top, max(4, textSpacing * 0.25))
+            }
+            .padding(cardPadding)
+        }
+        .frame(maxWidth: cardMaxWidth)
     }
 }
 

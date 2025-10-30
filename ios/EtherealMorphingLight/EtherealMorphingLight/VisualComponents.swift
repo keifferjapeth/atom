@@ -481,37 +481,66 @@ struct VoiceCommandWaveform: View {
 struct CommandOrbField: View {
     let maxWidth: CGFloat
     let scale: CGFloat
+    var contentInsets: EdgeInsets? = nil
 
     var body: some View {
         let orbScale = min(1.15, max(0.8, scale * 0.95))
-        let spacing = max(18, min(32, maxWidth * 0.05))
-        let padding = max(16, min(28, maxWidth * 0.08))
+        let spacing = max(18, min(32, maxWidth * 0.08))
+        let orbSizeEstimate = 72 * min(1.2, max(0.82, scale * 0.95)) + max(12, min(18, orbScale * 12))
+        let tripleThreshold = max(520, orbSizeEstimate * 3 + spacing * 1.8)
+        let doubleThreshold = max(380, orbSizeEstimate * 2 + spacing * 1.2)
+        let insets = contentInsets ?? EdgeInsets(
+            top: max(12, min(24, maxWidth * 0.04)),
+            leading: max(16, min(28, maxWidth * 0.08)),
+            bottom: max(10, min(20, maxWidth * 0.035)),
+            trailing: max(16, min(28, maxWidth * 0.08))
+        )
 
-        ViewThatFits(in: .horizontal) {
-            HStack(spacing: spacing) {
-                orbRow(orbScale: orbScale)
-            }
-            .frame(maxWidth: .infinity)
+        Group {
+            if maxWidth >= tripleThreshold {
+                HStack(spacing: spacing) {
+                    ForEach(0..<3) { index in
+                        orb(for: index, scale: orbScale)
+                    }
+                }
+                .frame(maxWidth: .infinity)
+            } else if maxWidth >= doubleThreshold {
+                VStack(spacing: spacing) {
+                    HStack(spacing: spacing) {
+                        orb(for: 0, scale: orbScale)
+                        orb(for: 1, scale: orbScale)
+                    }
+                    .frame(maxWidth: .infinity)
 
-            VStack(spacing: spacing) {
-                orbRow(orbScale: orbScale)
+                    HStack(spacing: spacing) {
+                        orb(for: 2, scale: orbScale)
+                    }
+                    .frame(maxWidth: .infinity)
+                }
+                .frame(maxWidth: .infinity)
+            } else {
+                VStack(spacing: spacing) {
+                    ForEach(0..<3) { index in
+                        orb(for: index, scale: orbScale)
+                    }
+                }
+                .frame(maxWidth: .infinity)
             }
-            .frame(maxWidth: .infinity)
         }
-        .padding(.horizontal, padding)
-        .padding(.top, max(8, min(16, maxWidth * 0.03)))
+        .padding(.top, insets.top)
+        .padding(.bottom, insets.bottom)
+        .padding(.leading, insets.leading)
+        .padding(.trailing, insets.trailing)
     }
 
     @ViewBuilder
-    private func orbRow(orbScale: CGFloat) -> some View {
-        ForEach(0..<3) { index in
-            CommandOrb(
-                title: index == 0 ? "Shield" : index == 1 ? "Scan" : "Deploy",
-                subtitle: index == 0 ? "Impact deflect" : index == 1 ? "Spectral sweep" : "Nanite swarm",
-                delay: Double(index) * 0.35,
-                scale: orbScale
-            )
-        }
+    private func orb(for index: Int, scale: CGFloat) -> some View {
+        CommandOrb(
+            title: index == 0 ? "Shield" : index == 1 ? "Scan" : "Deploy",
+            subtitle: index == 0 ? "Impact deflect" : index == 1 ? "Spectral sweep" : "Nanite swarm",
+            delay: Double(index) * 0.35,
+            scale: scale
+        )
     }
 }
 
@@ -575,6 +604,50 @@ private struct CommandOrb: View {
             ) {
                 animate = true
             }
+        }
+    }
+}
+
+struct CommandOrbConsole: View {
+    let availableWidth: CGFloat
+    let scale: CGFloat
+
+    var body: some View {
+        let headingSize = max(16, min(20, availableWidth * 0.06))
+        let detailSize = max(12, min(14, availableWidth * 0.045))
+        let sectionSpacing = max(14, min(22, availableWidth * 0.05))
+        let detailSpacing = max(6, min(12, availableWidth * 0.03))
+        let horizontalPadding = max(20, min(30, availableWidth * 0.08))
+        let topPadding = max(22, min(34, availableWidth * 0.09))
+        let bottomPadding = max(18, min(28, availableWidth * 0.07))
+
+        GlassCard {
+            VStack(alignment: .leading, spacing: sectionSpacing) {
+                VStack(alignment: .leading, spacing: detailSpacing) {
+                    Text("Command Matrix")
+                        .font(.system(size: headingSize, weight: .semibold, design: .rounded))
+                        .foregroundStyle(Color.white.opacity(0.92))
+
+                    Text("Orbital directives online")
+                        .font(.system(size: detailSize, weight: .medium, design: .rounded))
+                        .foregroundStyle(Color.white.opacity(0.6))
+                }
+
+                CommandOrbField(
+                    maxWidth: availableWidth,
+                    scale: scale,
+                    contentInsets: EdgeInsets(
+                        top: sectionSpacing * 0.45,
+                        leading: 0,
+                        bottom: sectionSpacing * 0.3,
+                        trailing: 0
+                    )
+                )
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.top, topPadding)
+            .padding(.bottom, bottomPadding)
+            .padding(.horizontal, horizontalPadding)
         }
     }
 }
