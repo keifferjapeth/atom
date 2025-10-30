@@ -47,6 +47,16 @@ class AtomMemory:
                 )
             ''')
             
+            # Add indexes for frequently-queried columns
+            cursor.execute('''
+                CREATE INDEX IF NOT EXISTS idx_command_history_timestamp 
+                ON command_history(timestamp DESC)
+            ''')
+            cursor.execute('''
+                CREATE INDEX IF NOT EXISTS idx_command_history_type 
+                ON command_history(command_type)
+            ''')
+            
             # User preferences and settings
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS user_preferences (
@@ -55,6 +65,11 @@ class AtomMemory:
                     category TEXT,
                     timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
                 )
+            ''')
+            
+            cursor.execute('''
+                CREATE INDEX IF NOT EXISTS idx_user_preferences_category 
+                ON user_preferences(category)
             ''')
             
             # Learned patterns and behaviors
@@ -70,6 +85,15 @@ class AtomMemory:
                 )
             ''')
             
+            cursor.execute('''
+                CREATE INDEX IF NOT EXISTS idx_learned_patterns_type 
+                ON learned_patterns(pattern_type)
+            ''')
+            cursor.execute('''
+                CREATE INDEX IF NOT EXISTS idx_learned_patterns_confidence 
+                ON learned_patterns(confidence DESC, usage_count DESC)
+            ''')
+            
             # File and location preferences
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS location_preferences (
@@ -81,6 +105,11 @@ class AtomMemory:
                 )
             ''')
             
+            cursor.execute('''
+                CREATE INDEX IF NOT EXISTS idx_location_preferences_context 
+                ON location_preferences(context, usage_count DESC, last_used DESC)
+            ''')
+            
             # Conversation context
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS conversation_context (
@@ -90,6 +119,11 @@ class AtomMemory:
                     context_type TEXT,
                     context_data TEXT NOT NULL
                 )
+            ''')
+            
+            cursor.execute('''
+                CREATE INDEX IF NOT EXISTS idx_conversation_context_session 
+                ON conversation_context(session_id, timestamp DESC)
             ''')
             
             conn.commit()

@@ -62,6 +62,7 @@ class MainWindow(QMainWindow):
     recording_thread: Optional[Thread] = None
     transcription_thread: Optional[Thread] = None
     temp_file_path: Optional[str] = None
+    whisper_model = None  # Cache Whisper model to avoid reloading
 
     def __init__(self):
         super().__init__(flags=Qt.WindowType.Window)
@@ -170,8 +171,10 @@ class MainWindow(QMainWindow):
         self.insights_timer.start(90_000)  # every 90 seconds
 
     def transcribe_recording(self):
-        model = whisper.load_model("base")
-        result = model.transcribe(audio=self.temp_file_path, language="en", task="transcribe")
+        # Load model once and cache it to avoid expensive reloading
+        if self.whisper_model is None:
+            self.whisper_model = whisper.load_model("base")
+        result = self.whisper_model.transcribe(audio=self.temp_file_path, language="en", task="transcribe")
 
         text = result["text"]
         print(f'Transcribed text: {text}')
@@ -195,6 +198,9 @@ class MainWindow(QMainWindow):
 
         self.temp_file_path = os.path.join(tempfile.gettempdir(), f'{uuid.uuid1()}.wav')
         print(f'Temporary recording path: {self.temp_file_path}')
+        
+        # Initialize queue for this recording session
+        self.queue = queue.Queue()
 
         with soundfile.SoundFile(self.temp_file_path, mode='x', samplerate=int(device['default_samplerate']),
                                  channels=1) as file:
@@ -245,6 +251,62 @@ class MainWindow(QMainWindow):
         painter.fillRect(pixmap.rect(), QColor(color))
         painter.end()
         return QIcon(pixmap)
+    
+    def on_run_command(self):
+        """Execute a manually entered command."""
+        command = self.command_input.text().strip()
+        if not command:
+            return
+        
+        self.append_log(f"📝 Running command: {command}")
+        self.status_label.setText(f"Executing: {command}")
+        self.command_input.clear()
+        
+        # Run command in a separate thread to avoid blocking UI
+        def run_command_thread():
+            try:
+                main.main(command)
+                self.status_label.setText("✅ Command completed.")
+                self.append_log("✅ Command completed successfully.")
+            except Exception as e:
+                error_msg = f"❌ Error: {str(e)}"
+                self.status_label.setText(error_msg)
+                self.append_log(error_msg)
+            finally:
+                self.refresh_insights()
+        
+        Thread(target=run_command_thread).start()
+    
+    def append_log(self, message: str):
+        """Append a message to the log view."""
+        self.log_view.append(message)
+    
+    def refresh_insights(self):
+        """Refresh the insights view with recent activity and patterns."""
+        if not LEARNING_TOOLS_AVAILABLE:
+            self.insights_view.setPlainText("📊 Learning system not available.\nInstall dependencies to enable learning features.")
+            return
+        
+        try:
+            insights = []
+            
+            # Get recent activity
+            try:
+                recent = get_recent_activity(hours=24)
+                insights.append(recent)
+            except Exception as e:
+                insights.append(f"Recent activity unavailable: {str(e)}")
+            
+            # Get command patterns
+            try:
+                patterns = get_command_patterns(days=7)
+                insights.append("\n" + patterns)
+            except Exception as e:
+                insights.append(f"\nPatterns unavailable: {str(e)}")
+            
+            self.insights_view.setPlainText("\n".join(insights))
+        except Exception as e:
+            self.insights_view.setPlainText(f"❌ Error loading insights: {str(e)}")
 
 
 class Application(QApplication):
