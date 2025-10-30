@@ -4,38 +4,67 @@ struct ContentView: View {
     var body: some View {
         ZStack {
             Color.black.ignoresSafeArea()
+
             AnimatedNebulaBackground()
                 .ignoresSafeArea()
+
+            EnergyHaloOverlay()
+                .ignoresSafeArea()
+
             VStack(spacing: 32) {
-                Spacer()
+                Spacer(minLength: 24)
+
                 GlassCard {
-                    VStack(spacing: 16) {
-                        Text("Ethereal Cognition Placeholder")
-                            .font(.system(size: 24, weight: .semibold, design: .rounded))
-                            .foregroundStyle(Color.white.opacity(0.9))
-                            .multilineTextAlignment(.center)
+                    VStack(spacing: 20) {
+                        VStack(spacing: 8) {
+                            Text("Jarvis Sentinel Uplink")
+                                .font(.system(size: 26, weight: .semibold, design: .rounded))
+                                .foregroundStyle(Color.white.opacity(0.95))
 
-                        Text("An aurora of intuition gathers before the AI awakens.")
-                            .font(.system(size: 16, weight: .medium, design: .rounded))
-                            .foregroundStyle(Color.white.opacity(0.75))
-                            .multilineTextAlignment(.center)
-                            .lineSpacing(4)
-
-                        HStack(spacing: 12) {
-                            PulsingLightDot(delay: 0)
-                            PulsingLightDot(delay: 0.3)
-                            PulsingLightDot(delay: 0.6)
+                            Text("Seamless cognition anchor priming hero-grade protocols.")
+                                .font(.system(size: 16, weight: .medium, design: .rounded))
+                                .foregroundStyle(Color.white.opacity(0.75))
+                                .multilineTextAlignment(.center)
+                                .lineSpacing(4)
                         }
-                        .padding(.top, 4)
+
+                        SuperpowerGlyphField()
+                            .padding(.top, 12)
+
+                        VStack(spacing: 14) {
+                            JarvisSkillRow(
+                                icon: "bolt.fill",
+                                title: "Photon Forecast",
+                                detail: "Predictive energy routing 4.7s ahead"
+                            )
+
+                            JarvisSkillRow(
+                                icon: "waveform.path.ecg",
+                                title: "Vital Shield",
+                                detail: "Autonomous resilience sweep every 900ms"
+                            )
+
+                            JarvisSkillRow(
+                                icon: "antenna.radiowaves.left.and.right",
+                                title: "Quantum Link",
+                                detail: "Jarvis neural uplink stabilized at 99.98%"
+                            )
+                        }
+
+                        VoiceCommandWaveform()
+                            .padding(.top, 6)
                     }
-                    .padding(24)
+                    .padding(.horizontal, 26)
+                    .padding(.vertical, 28)
                 }
                 .padding(.horizontal, 24)
 
-                Spacer()
+                CommandOrbField()
+
                 PlaceholderFooter()
             }
             .padding(.vertical, 48)
+            .padding(.horizontal, 12)
         }
     }
 }
