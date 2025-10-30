@@ -10,12 +10,40 @@ import soundfile
 import queue
 import tempfile
 import whisper
-from PyQt6.QtCore import (Qt)
+from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QIcon, QPixmap, QPainter, QColor
-from PyQt6.QtWidgets import (QApplication, QMainWindow, QPushButton, QWidget, QSizePolicy,
-                             QVBoxLayout, QLabel)
+from PyQt6.QtWidgets import (
+    QApplication,
+    QMainWindow,
+    QPushButton,
+    QWidget,
+    QSizePolicy,
+    QVBoxLayout,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QTextEdit,
+    QGroupBox,
+)
 
 import main
+from keychain_manager import get_openai_api_key_with_fallback
+
+# Optional enhanced capabilities
+try:
+    from learning_system import (
+        get_recent_activity,
+        get_command_patterns,
+    )
+    LEARNING_TOOLS_AVAILABLE = True
+except ImportError:
+    LEARNING_TOOLS_AVAILABLE = False
+
+try:
+    from data_analysis import analyze_directory_structure
+    DATA_ANALYSIS_AVAILABLE = True
+except ImportError:
+    DATA_ANALYSIS_AVAILABLE = False
 
 
 def get_asset_path(path: str):
@@ -34,40 +62,112 @@ class MainWindow(QMainWindow):
     recording_thread: Optional[Thread] = None
     transcription_thread: Optional[Thread] = None
     temp_file_path: Optional[str] = None
-    queue = queue.Queue()
 
     def __init__(self):
         super().__init__(flags=Qt.WindowType.Window)
 
         self.samples_buffer = np.ndarray([], dtype=np.float32)
+        self.audio_queue = queue.Queue()
+        self.current_command: Optional[str] = None
 
         self.setWindowFlags(Qt.WindowType.WindowStaysOnTopHint)
-
-        self.setFixedSize(275, 90)
-        self.setWindowTitle("GPT Automator")
+        self.setMinimumSize(560, 580)
+        self.setWindowTitle("Atom AI Assistant")
 
         widget = QWidget(parent=self)
+        main_layout = QVBoxLayout()
+        main_layout.setContentsMargins(16, 16, 16, 16)
+        main_layout.setSpacing(14)
 
-        layout = QVBoxLayout()
+        # Title
+        title_label = QLabel("Atom AI Assistant", parent=self)
+        title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        title_label.setStyleSheet("font-size: 22px; font-weight: 600;")
+        main_layout.addWidget(title_label)
+
+        # Controls section
+        controls_box = QGroupBox("Voice Control", parent=self)
+        controls_layout = QVBoxLayout()
 
         self.record_icon = self.load_icon(RECORD_ICON_PATH)
         self.stop_icon = self.load_icon(STOP_ICON_PATH)
 
         self.record_button = QPushButton(self.load_icon(RECORD_ICON_PATH), "Record", parent=self)
         self.record_button.clicked.connect(self.on_button_clicked)
-        self.record_button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        self.record_button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.record_button.setMinimumHeight(56)
         window_color = self.palette().window().color()
         background_color = window_color.lighter(150) if self.is_dark_theme() else window_color.darker(150)
         self.record_button.setStyleSheet(
-            "QPushButton { border-radius: 8px; background-color: %s; }" % background_color.name())
+            "QPushButton { border-radius: 10px; font-size: 17px; background-color: %s; padding: 12px; }" % background_color.name())
 
         self.transcription_label = QLabel("Click 'Record' to begin", parent=self)
         self.transcription_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.transcription_label.setWordWrap(True)
+        self.transcription_label.setStyleSheet("font-size: 14px;")
 
-        layout.addWidget(self.record_button)
-        layout.addWidget(self.transcription_label)
-        widget.setLayout(layout)
+        controls_layout.addWidget(self.record_button)
+        controls_layout.addWidget(self.transcription_label)
+        controls_box.setLayout(controls_layout)
+        main_layout.addWidget(controls_box)
+
+        # Manual command entry
+        command_box = QGroupBox("Type a Command", parent=self)
+        command_layout = QHBoxLayout()
+        self.command_input = QLineEdit(parent=self)
+        self.command_input.setPlaceholderText("Ask Atom to do something... (e.g., 'Organize my Downloads folder')")
+        self.command_input.returnPressed.connect(self.on_run_command)
+
+        self.run_command_button = QPushButton("Run", parent=self)
+        self.run_command_button.clicked.connect(self.on_run_command)
+        self.run_command_button.setMinimumWidth(90)
+
+        command_layout.addWidget(self.command_input)
+        command_layout.addWidget(self.run_command_button)
+        command_box.setLayout(command_layout)
+        main_layout.addWidget(command_box)
+
+        # Status + log section
+        status_box = QGroupBox("Activity", parent=self)
+        status_layout = QVBoxLayout()
+
+        self.status_label = QLabel("Ready for your command.", parent=self)
+        self.status_label.setWordWrap(True)
+        self.status_label.setStyleSheet("font-size: 13px;")
+
+        self.log_view = QTextEdit(parent=self)
+        self.log_view.setReadOnly(True)
+        self.log_view.setStyleSheet("font-family: 'SF Mono', monospace; font-size: 12px;")
+        self.log_view.setMinimumHeight(160)
+
+        status_layout.addWidget(self.status_label)
+        status_layout.addWidget(self.log_view)
+        status_box.setLayout(status_layout)
+        main_layout.addWidget(status_box)
+
+        # Insights section
+        insights_box = QGroupBox("Atom Insights", parent=self)
+        insights_layout = QVBoxLayout()
+        self.insights_view = QTextEdit(parent=self)
+        self.insights_view.setReadOnly(True)
+        self.insights_view.setPlaceholderText("Atom will show recent activity, learned preferences, and suggestions here.")
+        self.insights_view.setStyleSheet("font-family: 'SF Mono', monospace; font-size: 12px;")
+        self.insights_view.setMinimumHeight(150)
+
+        insights_layout.addWidget(self.insights_view)
+        insights_box.setLayout(insights_layout)
+        main_layout.addWidget(insights_box)
+
+        widget.setLayout(main_layout)
         self.setCentralWidget(widget)
+
+        self.append_log("✅ Atom is ready.")
+        self.refresh_insights()
+
+        # Periodically refresh insights to keep information up-to-date
+        self.insights_timer = QTimer(self)
+        self.insights_timer.timeout.connect(self.refresh_insights)
+        self.insights_timer.start(90_000)  # every 90 seconds
 
     def transcribe_recording(self):
         model = whisper.load_model("base")
@@ -158,5 +258,13 @@ class Application(QApplication):
 
 
 if __name__ == "__main__":
+    # Check API key availability before starting GUI
+    api_key = get_openai_api_key_with_fallback()
+    if not api_key:
+        print("\n❌ No OpenAI API key found!")
+        print("Please set up your API key first by running:")
+        print("python keychain_manager.py")
+        sys.exit(1)
+    
     app = Application()
     sys.exit(app.exec())

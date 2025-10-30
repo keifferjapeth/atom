@@ -12,6 +12,8 @@ openai-whisper = { git = "https://github.com/openai/whisper.git" }
 PyQt6 = "^6.4.0"
 openai = "^0.26.5"
 soundfile = "^0.11.0"
+langchain = "^0.1.0"
+python-dotenv = "^0.19.2"
 
 [build-system]
 requires = ["poetry-core"]
